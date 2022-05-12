@@ -1,0 +1,356 @@
+# In this file we will show a guide on configuring an Apache Hadoop / Spark cluster taking as reference 5 AWS EC2 Ubuntu Server 20.04 instances.
+# The commands that are shown must be launched from the cli of the machines, some only on the node chosen as master, others on each node.
+
+# In each node, we create the bigdata.sh file following the indicated path.
+
+
+sudo touch /etc/profile.d/bigdata.sh
+sudo chmod +x /etc/profile.d/bigdata.sh
+sudo echo -e '#!/bin/bash\n# Environment Variables for Big Data tools\n' | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+
+sudo reboot
+
+export NameNodeDNS="Public NameNode (master) DNS"
+export DataNode001DNS="Public slave1 (DataNode001) DNS"
+export DataNode002DNS="Public slave2 (DataNode002) DNS"
+export DataNode003DNS="..."
+export DataNode004DNS="..."
+export NameNodeIP="Private IP address NameNode (master)"
+export DataNode001IP="Private IP address DataNode001 (slave1)"
+export DataNode002IP="Private IP address DataNode002 (slave2)"
+export DataNode003IP="..."
+export DataNode004IP="..."
+
+# Save in ~/.ssh/bigdata-1.pem the key pair associated to each node
+
+export IdentityFile="~/.ssh/bigdata-1.pem"
+
+
+# Then, write the bigdata.sh file
+
+echo "# AmazonEC2 Variables START" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "export NameNodeDNS=\"${NameNodeDNS}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "export DataNode001DNS=\"${DataNode001DNS}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "export DataNode002DNS=\"${DataNode002DNS}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "export DataNode003DNS=\"${DataNode003DNS}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "export DataNode004DNS=\"${DataNode004DNS}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo "" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export NameNodeIP=\"${NameNodeIP}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export DataNode001IP=\"${DataNode001IP}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export DataNode002IP=\"${DataNode002IP}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export DataNode003IP=\"${DataNode003IP}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export DataNode004IP=\"${DataNode004IP}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "export IdentityFile=\"${IdentityFile}\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+echo -e "# AmazonEC2 Variables END" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+
+sudo reboot
+
+--------------------------------------------ONLY MASTER (NAMENODE)------------------------------------------------------
+# Set public DNS as publichost to identify it
+
+
+publichost=${NameNodeDNS}
+sudo hostname ${publichost}
+
+sudo rm -rf /etc/hostname
+echo -e "${publichost}" | sudo tee --append /etc/hostname > /dev/null
+sudo chown root /etc/hostname
+
+sudo reboot 
+
+
+-------------------------------------------ONLY SLAVES (DATANODES)------------------------------------------------------
+publichost=${DataNode001DNS}					              # Set the right variable for each DataNode
+sudo hostname ${publichost}
+
+sudo rm -rf /etc/hostname
+echo -e "${publichost}" | sudo tee --append /etc/hostname > /dev/null
+sudo chown root /etc/hostname
+
+sudo reboot
+
+
+------------------------------------------ALL NODES---------------------------------------------------------------------
+# Write hosts file
+
+
+sudo rm -rf /etc/hosts
+echo -e "${NameNodeIP}\tNameNode" | sudo tee --append /etc/hosts > /dev/null
+echo -e "${DataNode001IP}\tDataNode001" | sudo tee --append /etc/hosts > /dev/null
+echo -e "${DataNode002IP}\tDataNode002" | sudo tee --append /etc/hosts > /dev/null
+echo -e "${DataNode003IP}\tDataNode003" | sudo tee --append /etc/hosts > /dev/null
+echo -e "${DataNode004IP}\tDataNode004" | sudo tee --append /etc/hosts > /dev/null
+echo -e "\n# The following lines are desirable for IPv6 capable hosts" | sudo tee --append /etc/hosts > /dev/null
+echo -e "::1 ip6-localhost ip6-loopback" | sudo tee --append /etc/hosts > /dev/null
+echo -e "fe00::0 ip6-localnet" | sudo tee --append /etc/hosts > /dev/null
+echo -e "ff00::0 ip6-mcastprefix" | sudo tee --append /etc/hosts > /dev/null
+echo -e "ff02::1 ip6-allnodes" | sudo tee --append /etc/hosts > /dev/null
+echo -e "ff02::2 ip6-allrouters" | sudo tee --append /etc/hosts > /dev/null
+echo -e "ff02::3 ip6-allhosts" | sudo tee --append /etc/hosts > /dev/null
+sudo chown root /etc/hosts
+
+
+sudo reboot
+
+# Write config file
+
+
+sudo rm -rf ~/.ssh/config
+echo -e "Host 0.0.0.0" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${NameNodeDNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+echo -e "Host NameNode" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${NameNodeDNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+echo -e "Host DataNode001" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${DataNode001DNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+echo -e "Host DataNode002" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${DataNode002DNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+echo -e "Host DataNode003" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${DataNode003DNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+echo -e "Host DataNode004" | tee --append ~/.ssh/config > /dev/null
+echo -e "  HostName ${DataNode004DNS}" | tee --append ~/.ssh/config > /dev/null
+echo -e "  User ubuntu" | tee --append ~/.ssh/config > /dev/null
+echo -e "  IdentityFile ${IdentityFile}" | tee --append ~/.ssh/config > /dev/null
+sudo chmod 0400 ~/.ssh/config
+
+sudo reboot
+
+sudo rm -rf ~/.ssh/id_rsa*
+sudo rm -rf ~/.ssh/known_hosts
+ssh-keygen -f ~/.ssh/id_rsa -t rsa -P ""
+sudo chmod 0600 ~/.ssh/id_rsa.pub
+sudo cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+
+hosts=0.0.0.0,NameNode,DataNode001,DataNode002,DataNode003,DataNode004 
+ssh-keyscan -H ${hosts} >> ~/.ssh/known_hosts
+
+sudo reboot
+
+
+# Java JDK Installation
+
+sudo apt-get -y update
+sudo apt-get -y install default-jdk
+
+
+# Writing at the bottom of bigdata.sh
+
+sudo nano /etc/profile.d/bigdata.sh
+export JAVA_HOME=/usr/lib/jvm/default-java		#check the correct path
+PATH=$PATH:$JAVA_HOME/bin
+
+
+# Download and extract hadoop packages, we have used Hadoop 2.9
+
+wget https://archive.apache.org/dist/hadoop/common/hadoop-2.9.0/hadoop-2.9.0.tar.gz
+sudo tar -zxvf hadoop-*.tar.gz -C /usr/local
+sudo mv /usr/local/hadoop-* /usr/local/hadoop
+
+sudo echo -e "#HADOOP Variables START" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+sudo echo -e "export HADOOP_HOME='/usr/local/hadoop'" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+sudo echo -e "export HADOOP_CONF_DIR=\"\${HADOOP_HOME}/etc/hadoop\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null		# check HADOOP_HOME
+sudo echo -e "export HADOOP_DATA_HOME=\"\${HOME}/hadoop_data/hdfs\"" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null		# attention HOME
+sudo echo -e "PATH=\$PATH:\$HADOOP_HOME/bin:\$HADOOP_HOME/sbin" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+sudo echo -e "# HADOOP Variables END" | sudo tee --append /etc/profile.d/bigdata.sh > /dev/null
+
+
+mkdir -p $HADOOP_DATA_HOME/datanode
+mkdir -p $HADOOP_DATA_HOME/namenode
+mkdir -p $HADOOP_DATA_HOME/tmp
+
+
+# Write the following line inside hadoop-env.sh file
+
+sudo nano $HADOOP_CONF_DIR/hadoop-env.sh
+export JAVA_HOME=/usr/lib/jvm/default-java		
+
+
+# Replace the <configuration> tags inside core-site.xml with the indicated code
+
+sudo nano $HADOOP_CONF_DIR/core-site.xml
+
+
+<configuration>
+
+  <property>
+    <name>thisnamenode</name>
+    <value>NameNode</value>
+  </property>
+
+  <property>
+    <name>homefolder</name>
+    <value>/home/${user.name}</value>
+  </property>
+
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>${homefolder}/hadoop_data/hdfs/tmp</value>
+  </property>
+
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://${thisnamenode}:9000</value>
+  </property>
+
+  <property>
+    <name>dfs.permissions</name>
+    <value>false</value>
+  </property>
+
+</configuration>
+
+
+# The same for yarn-site.xml
+
+sudo nano $HADOOP_CONF_DIR/yarn-site.xml
+
+<configuration>
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+  </property>
+
+  <property>
+    <name>mapred.job.tracker</name>
+    <value>${thisnamenode}:9001</value>
+  </property>
+
+</configuration>
+
+
+
+sudo cp $HADOOP_CONF_DIR/mapred-site.xml.template $HADOOP_CONF_DIR/mapred-site.xml
+sudo chmod 644 $HADOOP_CONF_DIR/mapred-site.xml
+sudo chown ubuntu $HADOOP_CONF_DIR//mapred-site.xml
+
+
+# Again for mapred-site.xml
+
+sudo nano $HADOOP_CONF_DIR/mapred-site.xml
+
+<configuration>
+  
+  <property>
+    <name>mapreduce.jobtracker.address</name>
+    <value>${thisnamenode}:54311</value>
+  </property>
+
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+
+</configuration>
+
+
+# ... hdfs-site.xml 
+
+sudo nano $HADOOP_CONF_DIR/hdfs-site.xml
+
+<configuration>
+
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file://${homefolder}/hadoop_data/hdfs/namenode</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file://${homefolder}/hadoop_data/hdfs/datanode</value>
+  </property>
+
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+ 
+</configuration>
+
+
+---------------------------------ONLY MASTER AND SECONDARY, IN OUR CASE DATANODE001-------------------------------------
+
+sudo rm -rf $HADOOP_CONF_DIR/masters
+echo -e "NameNode" | sudo tee --append $HADOOP_CONF_DIR/masters > /dev/null
+echo -e "DataNode001" | sudo tee --append $HADOOP_CONF_DIR/masters > /dev/null
+sudo chown ubuntu $HADOOP_CONF_DIR/masters
+sudo chmod 0644 $HADOOP_CONF_DIR/masters
+
+
+
+------------------------------------------ALL NODES---------------------------------------------------------------------
+
+
+sudo rm -rf $HADOOP_CONF_DIR/slaves
+
+echo -e "localhost" | sudo tee --append $HADOOP_CONF_DIR/slaves > /dev/null
+echo -e "DataNode001" | sudo tee --append $HADOOP_CONF_DIR/slaves > /dev/null
+echo -e "DataNode002" | sudo tee --append $HADOOP_CONF_DIR/slaves > /dev/null
+echo -e "DataNode003" | sudo tee --append $HADOOP_CONF_DIR/slaves > /dev/null
+echo -e "DataNode004" | sudo tee --append $HADOOP_CONF_DIR/slaves > /dev/null
+sudo chown ubuntu $HADOOP_CONF_DIR/slaves
+sudo chmod 0644 $HADOOP_CONF_DIR/slaves
+
+sudo reboot
+
+
+
+--------------------------------------------ONLY MASTER (NAMENODE)------------------------------------------------------
+
+sudo rm -rf $HADOOP_DATA_HOME
+sudo rm -rf $HADOOP_HOME/logs
+hdfs namenode -format
+
+sudo reboot
+
+
+# To check installation of Hadoop, you can launch from master shell the following commands : 
+
+$HADOOP_HOME/sbin/start-dfs.sh
+$HADOOP_HOME/sbin/start-yarn.sh
+$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+
+# You can verify the configuration at "public DNS master":50070 for hadoop, 
+# "public DNS master":8088 for Yarn UI
+
+------------------------------------------ALL NODES---------------------------------------------------------------------
+
+# Download and install Apache Spark, we have used 3.0.3 version compatible with hadoop2.7+
+
+
+wget https://archive.apache.org/dist/spark/spark-3.0.3/spark-3.0.3-bin-hadoop2.7.tgz
+tar xvzf spark-3.0.3-bin-hadoop2.7.tgz
+sudo mv ./spark-3.0.3-bin-hadoop2.7 /home/ubuntu/spark
+rm spark-3.0.3-bin-hadoop2.7.tgz
+
+
+# Write the following lines (export ... ) inside spark-env.sh
+
+sudo cp spark/conf/spark-env.sh.template spark/conf/spark-env.sh
+sudo nano spark/conf/spark-env.sh
+
+export SPARK_MASTER_HOST="Public NameNode DNS"
+export HADOOP_CONF_DIR="/home/ubuntu/hadoop/conf"
+
+sudo reboot
+
+-------------------------------------------------------------------------------------------------------------------------
+
+
+# You can verify the correct installation launching  ./spark/sbin/start-master.sh
+# from the master and going to "public DNS master":8080 to show spark UI
+# To launching slaves,  ./spark/sbin/start-slave.sh ADDRESS 	where you can find
+# ADDRESS at the top of spark UI page

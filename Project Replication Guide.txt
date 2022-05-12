@@ -1,0 +1,98 @@
+# A guide to playing this project is shown in this file. As a prerequisite, all instances must have Python3.5 + and the Tensorflow, Numpy, Pandas and Tensorflowonspark libraries installed
+# As for the other guide, we will specify the commands to be used only from the master shell, and those to be used by all terminals.
+
+
+----------------------------------------------------ALL NODES-------------------------------------------------------- 
+
+rm -rf $HADOOP_DATA_HOME/tmp/nm-local-dir/usercache/*
+export LD_LIBRARY_PATH=${PATH}
+export LIB_HDFS=$HADOOP_HOME/lib/native
+export LIB_JVM=$JAVA_HOME/lib/server
+export QUEUE=default
+export SPARK_HOME=/home/ubuntu/spark
+
+
+----------------------------------------------------ONLY MASTER------------------------------------------------------ 
+
+# Download/zip the mnist dataset 
+
+mkdir ${HOME}/mnist
+pushd ${HOME}/mnist >/dev/null
+curl -O "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz"
+curl -O "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz"
+curl -O "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz"
+curl -O "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz"
+zip -r mnist.zip *
+popd >/dev/null
+
+
+# Start hdfs, yarn, historyserver and spark 
+
+$HADOOP_HOME/sbin/start-dfs.sh
+$HADOOP_HOME/sbin/start-yarn.sh
+$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+./spark/sbin/start-master.sh
+
+
+----------------------------------------------------ALL NODES--------------------------------------------------------
+ 
+./spark/sbin/start-slave.sh spark://ec2-35-163-159-92.us-west-2.compute.amazonaws.com:7077
+
+
+---------------------------------------------------ONLY MASTER-------------------------------------------------------
+
+# Convert dataset in csv format and load it in hdfs filesystem (standalone mode)
+
+${SPARK_HOME}/bin/spark-submit \
+--master "public NameNode DNS":7077 \
+--deploy-mode cluster \
+--queue ${QUEUE} \
+--executor-memory 2G \
+--archives mnist/mnist.zip#mnist \
+data_setup.py \
+--output mnist/csv \
+--format csv
+
+
+# Launch applicatio for distributed training 
+
+${SPARK_HOME}/bin/spark-submit \
+--master yarn \
+--deploy-mode cluster \
+--queue ${QUEUE} \
+--num-executors 4 \
+--executor-memory 2G \
+--conf spark.dynamicAllocation.enabled=false \
+--conf spark.yarn.maxAppAttempts=1 \
+--conf spark.executorEnv.LD_LIBRARY_PATH=$LIB_JVM:$LIB_HDFS \
+TFoS_application.py \
+--images_labels hdfs://"Private NameNode IP:9000/user/ubuntu/mnist/csv/csv/train \
+--model_dir mnist/mnist_model \
+--export_dir mnist/export_model
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+# ... Waiting (state: RUNNING)
+
+# At the end of execution you should see (final status : SUCCEEDED)
+
+#To see logs, from the Application Master (shown in the output) : 
+
+cd $HADOOP_HOME
+cat logs/userlogs/#n_application/#n_container/stdout
+
+
+
+# To stop the cluster 
+
+-------------------------------------------ALL NODES------------------------------------------------------
+
+./spark/sbin/stop-slave.sh
+
+-------------------------------------------ONLY MASTER----------------------------------------------------
+
+./spark/sbin/stop-master.sh
+$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh stop historyserver
+$HADOOP_HOME/sbin/stop-yarn.sh
+$HADOOP_HOME/sbin/stop-dfs.sh
+
